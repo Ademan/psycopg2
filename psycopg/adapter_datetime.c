@@ -90,7 +90,7 @@ pydatetime_str(pydatetimeObject *self)
 
         char buffer[8]; 
         int i;
-        int a = obj->microseconds;
+        int a = PyDateTime_DELTA_GET_MICROSECONDS(obj);
 
         for (i=0; i < 6 ; i++) {
             buffer[5-i] = '0' + (a % 10);
@@ -99,7 +99,9 @@ pydatetime_str(pydatetimeObject *self)
         buffer[6] = '\0';
 
         return PyString_FromFormat("'%d days %d.%s seconds'::interval",
-                                   obj->days, obj->seconds, buffer);
+                                   PyDateTime_DELTA_GET_DAYS(obj),
+                                   PyDateTime_DELTA_GET_SECONDS(obj),
+                                   buffer);
     }
 }
 
