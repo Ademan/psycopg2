@@ -575,6 +575,7 @@ psyco_is_main_interp(void)
 {
     static PyInterpreterState *main_interp = NULL;  /* Cached reference */
     PyInterpreterState *interp;
+    PyInterpreterState *next;
 
     if (main_interp) {
         return (main_interp == PyThreadState_Get()->interp);
@@ -582,8 +583,12 @@ psyco_is_main_interp(void)
 
     /* No cached value: cache the proper value and try again. */
     interp = PyInterpreterState_Head();
-    while (interp->next)
-        interp = interp->next;
+    while (1)
+    {
+        next = PyInterpreterState_Next(interp);
+        if (next == NULL) break;
+        interp = next;
+    }
 
     main_interp = interp;
     assert (main_interp);
@@ -706,6 +711,11 @@ static PyMethodDef psycopgMethods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
+#define SETUP_TYPE(t) \
+    t.ob_type = &PyType_Type;\
+    t.tp_alloc = PyTypeGenericAlloc;\
+    if (PyType_Ready(&t) == -1) return;
+
 PyMODINIT_FUNC
 init_psycopg(void)
 {
@@ -723,50 +733,81 @@ init_psycopg(void)
 
     /* initialize all the new types and then the module */
     connectionType.ob_type = &PyType_Type;
-    cursorType.ob_type     = &PyType_Type;
-    typecastType.ob_type   = &PyType_Type;
-    qstringType.ob_type    = &PyType_Type;
-    binaryType.ob_type     = &PyType_Type;
-    isqlquoteType.ob_type  = &PyType_Type;
-    pbooleanType.ob_type   = &PyType_Type;
-    pfloatType.ob_type     = &PyType_Type;
-    pdecimalType.ob_type   = &PyType_Type;
-    asisType.ob_type       = &PyType_Type;
-    listType.ob_type       = &PyType_Type;
-    chunkType.ob_type      = &PyType_Type;
-    NotifyType.ob_type     = &PyType_Type;
-    XidType.ob_type        = &PyType_Type;
-
+    connectionType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&connectionType) == -1) return;
+        
+    cursorType.ob_type     = &PyType_Type;
+    cursorType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&cursorType) == -1) return;
+
+    typecastType.ob_type   = &PyType_Type;
+    /* XXX: also needs tp_alloc ? */
+    typecastType.ob_alloc   = PyType_GenericAlloc;
     if (PyType_Ready(&typecastType) == -1) return;
+
+    qstringType.ob_type    = &PyType_Type;
+    qstringType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&qstringType) == -1) return;
+
+    binaryType.ob_type     = &PyType_Type;
+    binaryType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&binaryType) == -1) return;
+
+    isqlquoteType.ob_type  = &PyType_Type;
+    isqlquoteType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&isqlquoteType) == -1) return;
+
+    pbooleanType.ob_type   = &PyType_Type;
+    pbooleanType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&pbooleanType) == -1) return;
+
+    pfloatType.ob_type     = &PyType_Type;
+    pfloatType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&pfloatType) == -1) return;
+
+    pdecimalType.ob_type   = &PyType_Type;
+    pdecimalType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&pdecimalType) == -1) return;
+
+    asisType.ob_type       = &PyType_Type;
+    asisType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&asisType) == -1) return;
+
+    listType.ob_type       = &PyType_Type;
+    listType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&listType) == -1) return;
+
+    chunkType.ob_type      = &PyType_Type;
+    chunkType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&chunkType) == -1) return;
+
+    NotifyType.ob_type     = &PyType_Type;
+    NotifyType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&NotifyType) == -1) return;
+
+    XidType.ob_type        = &PyType_Type;
+    XidType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&XidType) == -1) return;
 
 #ifdef PSYCOPG_EXTENSIONS
     lobjectType.ob_type    = &PyType_Type;
+    lobjectType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&lobjectType) == -1) return;
 #endif
 
     /* import mx.DateTime module, if necessary */
 #ifdef HAVE_MXDATETIME
     mxdatetimeType.ob_type = &PyType_Type;
+    mxdatetimeType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&mxdatetimeType) == -1) return;
+
     if (mxDateTime_ImportModuleAndAPI() != 0) {
         Dprintf("initpsycopg: why marc hide mx.DateTime again?!");
         PyErr_SetString(PyExc_ImportError, "can't import mx.DateTime module");
         return;
     }
     mxDateTimeP = &mxDateTime;
+    Py_INCREF(&mxDateTime);
 #endif
 
     /* import python builtin datetime module, if available */
@@ -777,7 +818,9 @@ init_psycopg(void)
         return;
     }
     pydatetimeType.ob_type = &PyType_Type;
+    pydatetimeType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&pydatetimeType) == -1) return;
+    Py_INCREF(&pydatetimeType);
 
     /* now we define the datetime types, this is crazy because python should
        be doing that, not us! */
@@ -822,17 +865,39 @@ init_psycopg(void)
     PyModule_AddObject(module, "paramstyle", PyString_FromString(PARAMSTYLE));
 
     /* put new types in module dictionary */
+    Py_INCREF(&connectionType);
     PyModule_AddObject(module, "connection", (PyObject*)&connectionType);
+
+    Py_INCREF(&cursorType);
     PyModule_AddObject(module, "cursor", (PyObject*)&cursorType);
+
+    Py_INCREF(&isqlquoteType);
     PyModule_AddObject(module, "ISQLQuote", (PyObject*)&isqlquoteType);
+
+    Py_INCREF(&NotifyType);
     PyModule_AddObject(module, "Notify", (PyObject*)&NotifyType);
+
+    Py_INCREF(&XidType);
     PyModule_AddObject(module, "Xid", (PyObject*)&XidType);
+    
 #ifdef PSYCOPG_EXTENSIONS
+    Py_INCREF(&lobjectType);
     PyModule_AddObject(module, "lobject", (PyObject*)&lobjectType);
 #endif
 
     /* encodings dictionary in module dictionary */
     PyModule_AddObject(module, "encodings", psycoEncodings);
+
+    /* XXX: necessary? */
+    Py_INCREF(&typecastType);
+    Py_INCREF(&qstringType);
+    Py_INCREF(&binaryType);
+    Py_INCREF(&pbooleanType);
+    Py_INCREF(&pfloatType);
+    Py_INCREF(&pdecimalType);
+    Py_INCREF(&asisType);
+    Py_INCREF(&listType);
+    Py_INCREF(&chunkType);
 
     /* initialize default set of typecasters */
     typecast_init(dict);
@@ -844,31 +909,6 @@ init_psycopg(void)
     /* create a standard set of exceptions and add them to the module's dict */
     psyco_errors_init();
     psyco_errors_fill(dict);
-
-    /* Solve win32 build issue about non-constant initializer element */
-    cursorType.tp_alloc = PyType_GenericAlloc;
-    binaryType.tp_alloc = PyType_GenericAlloc;
-    isqlquoteType.tp_alloc = PyType_GenericAlloc;
-    pbooleanType.tp_alloc = PyType_GenericAlloc;
-    pfloatType.tp_alloc = PyType_GenericAlloc;
-    pdecimalType.tp_alloc = PyType_GenericAlloc;
-    connectionType.tp_alloc = PyType_GenericAlloc;
-    asisType.tp_alloc = PyType_GenericAlloc;
-    qstringType.tp_alloc = PyType_GenericAlloc;
-    listType.tp_alloc = PyType_GenericAlloc;
-    chunkType.tp_alloc = PyType_GenericAlloc;
-    pydatetimeType.tp_alloc = PyType_GenericAlloc;
-    NotifyType.tp_alloc = PyType_GenericAlloc;
-    XidType.tp_alloc = PyType_GenericAlloc;
-
-#ifdef PSYCOPG_EXTENSIONS
-    lobjectType.tp_alloc = PyType_GenericAlloc;
-#endif
-
-
-#ifdef HAVE_MXDATETIME
-    mxdatetimeType.tp_alloc = PyType_GenericAlloc;
-#endif
 
     Dprintf("initpsycopg: module initialization complete");
 }
