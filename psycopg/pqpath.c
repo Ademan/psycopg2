@@ -963,8 +963,6 @@ _pq_fetch_tuples(cursorObject *curs)
 
         Py_BLOCK_THREADS;
 
-        dtitem = PyTuple_New(7);
-        PyTuple_SET_ITEM(curs->description, i, dtitem);
 
         /* fill the right cast function by accessing three different dictionaries:
            - the per-cursor dictionary, if available (can be NULL or None)
@@ -1006,9 +1004,11 @@ _pq_fetch_tuples(cursorObject *curs)
         PyTuple_SET_ITEM(curs->casts, i, cast);
 
         /* 1/ fill the other fields */
+        dtitem = PyTuple_New(7);
         PyTuple_SET_ITEM(dtitem, 0,
                          PyString_FromString(PQfname(curs->pgres, i)));
         PyTuple_SET_ITEM(dtitem, 1, type);
+        PyTuple_SET_ITEM(curs->description, i, dtitem);
 
         /* 2/ display size is the maximum size of this field result tuples. */
         if (dsize && dsize[i] >= 0) {
