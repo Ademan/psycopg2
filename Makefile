@@ -1,4 +1,4 @@
-PYTHON = python$(PYTHON_VERSION)
+PYTHON = $(PYTHON)
 #PYTHON_VERSION = 2.4
 
 TESTDB = psycopg2_test
