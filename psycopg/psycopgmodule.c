@@ -713,7 +713,7 @@ static PyMethodDef psycopgMethods[] = {
 
 #define SETUP_TYPE(t) \
     t.ob_type = &PyType_Type;\
-    t.tp_alloc = PyTypeGenericAlloc;\
+    t.tp_alloc = PyType_GenericAlloc;\
     if (PyType_Ready(&t) == -1) return;
 
 PyMODINIT_FUNC
@@ -736,13 +736,13 @@ init_psycopg(void)
     connectionType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&connectionType) == -1) return;
         
-    cursorType.ob_type     = &PyType_Type;
+    cursorType.ob_type = &PyType_Type;
     cursorType.tp_alloc = PyType_GenericAlloc;
     if (PyType_Ready(&cursorType) == -1) return;
 
     typecastType.ob_type   = &PyType_Type;
     /* XXX: also needs tp_alloc ? */
-    typecastType.ob_alloc   = PyType_GenericAlloc;
+    typecastType.tp_alloc   = PyType_GenericAlloc;
     if (PyType_Ready(&typecastType) == -1) return;
 
     qstringType.ob_type    = &PyType_Type;
