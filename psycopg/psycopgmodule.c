@@ -886,6 +886,7 @@ init_psycopg(void)
 #endif
 
     /* encodings dictionary in module dictionary */
+    Py_INCREF(psycoEncodings);
     PyModule_AddObject(module, "encodings", psycoEncodings);
 
     /* XXX: necessary? */
