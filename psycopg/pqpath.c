@@ -1008,7 +1008,6 @@ _pq_fetch_tuples(cursorObject *curs)
         PyTuple_SET_ITEM(dtitem, 0,
                          PyString_FromString(PQfname(curs->pgres, i)));
         PyTuple_SET_ITEM(dtitem, 1, type);
-        PyTuple_SET_ITEM(curs->description, i, dtitem);
 
         /* 2/ display size is the maximum size of this field result tuples. */
         if (dsize && dsize[i] >= 0) {
@@ -1050,6 +1049,9 @@ _pq_fetch_tuples(cursorObject *curs)
         Py_INCREF(Py_None);
         PyTuple_SET_ITEM(dtitem, 6, Py_None);
     
+        /* XXX: at this point we forefeit our reference */
+        PyTuple_SET_ITEM(curs->description, i, dtitem);
+
         Py_UNBLOCK_THREADS;    
     }
 
